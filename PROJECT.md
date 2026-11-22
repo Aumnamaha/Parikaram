@@ -12,7 +12,7 @@ Built on **`Tauri v2 + Rust`** (WKWebView / WebView2, mobile-ready iOS/Android),
 
 ### Phase 2: Native Multi-WebView Browser Engine
 - [x] 2.1 Rust BrowserState manager, URL/search normalizer, split-view rect solver & child Webview commands
-- [ ] 2.2 React vertical sidebar tabs, workspaces/spaces, pinned tabs, split-view frame & Ctrl+Shift+Space command launcher
+- [x] 2.2 React vertical sidebar tabs, workspaces/spaces, pinned tabs, split-view frame & Ctrl+Shift+Space command launcher
 
 ### Phase 3: Local-First SQLite + FTS5 Store
 - [ ] 3.1 Bundled SQLite + FTS5 schema (spaces, tabs, history, bookmarks, notes, tasks, profiles) & Rust IPC

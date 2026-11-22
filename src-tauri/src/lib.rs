@@ -45,6 +45,10 @@ pub fn run() {
             browser::navigate_tab,
             browser::set_split_tabs,
             browser::set_viewport_bounds,
+            browser::set_overlay_hidden,
+            browser::reload_tab,
+            browser::go_back_tab,
+            browser::go_forward_tab,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
