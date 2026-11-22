@@ -1,32 +1,30 @@
 # Parikaram
 
-Lightweight native desktop browser and spatial AI work environment.
+Spatial AI work environment with native multi-WebView browser.
 
-Built on **Tauri v2 + Rust** (WKWebView / WebView2, mobile-ready iOS/Android), **React 19 + TypeScript 5**, **Tailwind CSS v4**, with vertical sidebar tabs, local SQLite + FTS5 storage, ad/tracker blocking, local LM Studio / Ollama + cloud AI runtime, and infinite spatial Work Mode canvas.
+Built on **`Tauri v2 + Rust`** (WKWebView / WebView2, mobile-ready iOS/Android), **`React 19 + TypeScript 5`, **`Tailwind CSS v4`.
 
-## Build Phases
+## Build Phases - Granular Tracker
 
-- [x] Phase 1: Tauri v2 + Rust + React + TypeScript + Tailwind v4 Cross-Platform Scaffold
-- [ ] Phase 2: Native Multi-WebView Browser Engine, Vertical Sidebar Tabs, Spaces & Split View
-- [ ] Phase 3: Local-First SQLite + FTS5 Store (History, Bookmarks, Notes, Tasks, Isolated Profiles)
-- [ ] Phase 4: Native Rust Network Interceptor & Filter-List Ad/Tracker Blocker
-- [ ] Phase 5: Multi-Provider & Local AI Sidebar (LM Studio / Ollama + Cloud Providers + OS Keychain)
-- [ ] Phase 6: Spatial Work Mode Canvas & Mobile (iOS/Android) Target Packaging
+### Phase 1: Cross-Platform Scaffold (`7f4ba4a`)
+- [x] 1.1 Tauri v2 + Rust + React 19 + TypeScript + Tailwind v4 project layout
+- [x] 1.2 Multi-target crate config (staticlib, cdylib, rlib) & Windows/macOS capabilities
 
-## Tech Stack
+### Phase 2: Native Multi-WebView Browser Engine
+- [x] 2.1 Rust BrowserState manager, URL/search normalizer, split-view rect solver & child Webview commands
+- [ ] 2.2 React vertical sidebar tabs, workspaces/spaces, pinned tabs, split-view frame & Ctrl+Shift+Space command launcher
 
-| Layer | Technology |
-|-------|-----------|
-| Runtime | Tauri v2 (Rust) |
-| Frontend | React 19 + TypeScript 5 + Vite 6 |
-| Styling | Tailwind CSS v4 (@tailwindcss/vite) |
-| Backend IPC | Tauri commands / events |
-| Database | SQLite (rusqlite, bundled - Phase 3) |
-| AI | LM Studio / Ollama local + Cloud providers (Phase 5)
+### Phase 3: Local-First SQLite + FTS5 Store
+- [ ] 3.1 Bundled SQLite + FTS5 schema (spaces, tabs, history, bookmarks, notes, tasks, profiles) & Rust IPC
+- [ ] 3.2 React History search, Bookmarks bar, Notes & Tasks side drawer, and Profile switcher
 
-## Development
+### Phase 4: Native Rust Network & Ad/Tracker Blocker
+- [ ] 4.1 Brave adblock-rust filter engine + request interception + per-domain shield toggle & blocked counter
 
-npm run dev          # http://localhost:1420
-npm run build        # outputs to dist/
-npx tauri dev        # full stack with Rust backend
-npx tauri build      # release build
+### Phase 5: Multi-Provider & Local AI Sidebar (Ctrl+E)
+- [ ] 5.1 Rust streaming SSE client for LM Studio, Ollama & cloud APIs + OS Keychain storage
+- [ ] 5.2 React AI Assistant sidebar with active-tab context injection & model switcher
+
+### Phase 6: Infinite Spatial Work Mode Canvas & Mobile Packaging
+- [ ] 6.1 Pan/zoom spatial Work Canvas with parallel AI agent web cards, tables & code blocks
+- [ ] 6.2 End-to-end test suite, release bundle verification & macOS/iOS/Android target validation

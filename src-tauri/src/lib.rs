@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+pub mod browser;
+
 use serde_json::Value;
 
 #[tauri::command]
@@ -27,9 +29,23 @@ fn get_app_info() -> Value {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let browser_state = browser::BrowserState(Default::default());
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![get_app_info])
+        .manage(browser_state)
+        .invoke_handler(tauri::generate_handler![
+            get_app_info,
+            browser::list_tabs,
+            browser::create_space,
+            browser::switch_space,
+            browser::create_tab,
+            browser::activate_tab,
+            browser::close_tab,
+            browser::navigate_tab,
+            browser::set_split_tabs,
+            browser::set_viewport_bounds,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
 }
