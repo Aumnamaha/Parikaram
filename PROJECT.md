@@ -19,10 +19,10 @@ Built on **`Tauri v2 + Rust`** (WKWebView / WebView2, mobile-ready iOS/Android),
 - [x] 3.2 React History search, Bookmarks bar, Notes & Tasks side drawer, and Profile switcher
 
 ### Phase 4: Native Rust Network & Ad/Tracker Blocker
-- [ ] 4.1 Brave adblock-rust filter engine + request interception + per-domain shield toggle & blocked counter
+- [x] 4.1 Pure-Rust Adblock-Plus filter engine (regex-based) + request interception + per-domain shield toggle & blocked counter
 
 ### Phase 5: Multi-Provider & Local AI Sidebar (Ctrl+E)
-- [ ] 5.1 Rust streaming SSE client for LM Studio, Ollama & cloud APIs + OS Keychain storage
+- [x] 5.1 Rust streaming SSE client for LM Studio (127.0.0.1:1234/v1), Ollama & cloud APIs + OS Keychain storage
 - [ ] 5.2 React AI Assistant sidebar with active-tab context injection & model switcher
 
 ### Phase 6: Infinite Spatial Work Mode Canvas & Mobile Packaging

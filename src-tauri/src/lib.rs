@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 pub mod adblock;
+pub mod ai;
 pub mod browser;
 pub mod store;
 
@@ -90,10 +91,12 @@ pub fn run() {
             app.manage(store);
             app.manage(browser_state);
             app.manage(adblock::AdblockState(Default::default()));
+            app.manage(ai::AiState::default());
             Ok(())
         })
         .manage(browser::BrowserState(Default::default()))
         .manage(adblock::AdblockState(Default::default()))
+        .manage(ai::AiState::default())
         .invoke_handler(tauri::generate_handler![
             get_app_info,
             // Browser commands
@@ -133,6 +136,13 @@ pub fn run() {
             adblock::toggle_domain_shield,
             adblock::add_custom_filter_rule,
             adblock::reset_shield_stats,
+            // AI commands
+            ai::list_ai_providers,
+            ai::set_provider_api_key,
+            ai::delete_provider_api_key,
+            ai::list_provider_models,
+            ai::stream_ai_chat,
+            ai::cancel_ai_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
