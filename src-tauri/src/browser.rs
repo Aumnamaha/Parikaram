@@ -52,9 +52,9 @@ pub fn compute_pane_rects(viewport: &ViewportBounds, has_split: bool) -> (Viewpo
 }
 
 pub struct BrowserInner {
-    spaces: Vec<Space>, active_space_id: String, tabs: Vec<TabInfo>,
-    active_tab_id: Option<String>, split_tab_id: Option<String>,
-    viewport: ViewportBounds, overlay_hidden: bool,
+    pub spaces: Vec<Space>, pub active_space_id: String, pub tabs: Vec<TabInfo>,
+    pub active_tab_id: Option<String>, pub split_tab_id: Option<String>,
+    pub viewport: ViewportBounds, pub overlay_hidden: bool,
 }
 
 impl Default for BrowserInner {
@@ -84,8 +84,14 @@ impl BrowserState {
     }
 }
 
+fn persist_workspace(store: &tauri::State<'_, crate::store::StoreState>, state: &BrowserState) -> Result<(), String> {
+    let tabs_json = serde_json::to_string(&state.0.lock().unwrap().tabs).map_err(|e| e.to_string())?;
+    store.sync_workspace_snapshot("space-personal", &tabs_json)?;
+    Ok(())
+}
+
 #[cfg(desktop)]
-fn sync_native_webviews(app: &AppHandle, snap: &BrowserSnapshot) {
+pub(crate) fn sync_native_webviews(app: &AppHandle, snap: &BrowserSnapshot) {
     use tauri::webview::WebviewBuilder;
     use tauri::{LogicalPosition, LogicalSize, Rect, WebviewUrl};
 
@@ -190,17 +196,18 @@ pub async fn list_tabs(state: tauri::State<'_, BrowserState>) -> Result<serde_js
 }
 
 #[tauri::command]
-pub async fn create_space(app: AppHandle, state: tauri::State<'_, BrowserState>, name: String, icon: String, color: String) -> Result<serde_json::Value, String> {
+pub async fn create_space(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, name: String, icon: String, color: String) -> Result<serde_json::Value, String> {
     let sid = uuid::Uuid::new_v4().to_string();
     let space = Space { id: sid.clone(), name, icon, color };
     let mut inner = state.0.lock().map_err(|e| e.to_string())?;
     inner.spaces.push(space);
     drop(inner);
+    persist_workspace(&store, &state).ok();
     sync_and_snapshot!(&app, &state)
 }
 
 #[tauri::command]
-pub async fn switch_space(app: AppHandle, state: tauri::State<'_, BrowserState>, space_id: String) -> Result<serde_json::Value, String> {
+pub async fn switch_space(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, space_id: String) -> Result<serde_json::Value, String> {
     let mut inner = state.0.lock().map_err(|e| e.to_string())?;
     inner.active_space_id = space_id.clone();
     for t in &mut inner.tabs { if t.is_active && t.space_id != space_id { t.is_active = false } }
@@ -208,11 +215,12 @@ pub async fn switch_space(app: AppHandle, state: tauri::State<'_, BrowserState>,
         if t.space_id == space_id && !t.pinned { t.is_active = true; inner.active_tab_id = Some(t.id.clone()); break }
     }
     drop(inner);
+    persist_workspace(&store, &state).ok();
     sync_and_snapshot!(&app, &state)
 }
 
 #[tauri::command]
-pub async fn create_tab(app: AppHandle, state: tauri::State<'_, BrowserState>, url: Option<String>, pinned: Option<bool>) -> Result<serde_json::Value, String> {
+pub async fn create_tab(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, url: Option<String>, pinned: Option<bool>) -> Result<serde_json::Value, String> {
     let mut inner = state.0.lock().map_err(|e| e.to_string())?;
     for t in &mut inner.tabs { if t.is_active { t.is_active = false } }
     let tid = uuid::Uuid::new_v4().to_string();
@@ -221,6 +229,7 @@ pub async fn create_tab(app: AppHandle, state: tauri::State<'_, BrowserState>, u
     inner.tabs.push(new_tab);
     inner.active_tab_id = Some(tid.clone());
     drop(inner);
+    persist_workspace(&store, &state).ok();
     sync_and_snapshot!(&app, &state)
 }
 
@@ -234,7 +243,7 @@ pub async fn activate_tab(app: AppHandle, state: tauri::State<'_, BrowserState>,
 }
 
 #[tauri::command]
-pub async fn close_tab(app: AppHandle, state: tauri::State<'_, BrowserState>, tab_id: String) -> Result<serde_json::Value, String> {
+pub async fn close_tab(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, tab_id: String) -> Result<serde_json::Value, String> {
     let mut inner = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(idx) = inner.tabs.iter().position(|t| t.id == tab_id) {
         let was_active = inner.tabs[idx].is_active;
@@ -257,18 +266,24 @@ pub async fn close_tab(app: AppHandle, state: tauri::State<'_, BrowserState>, ta
         }
     }
     drop(inner);
+    persist_workspace(&store, &state).ok();
     sync_and_snapshot!(&app, &state)
 }
 
 #[tauri::command]
-pub async fn navigate_tab(app: AppHandle, state: tauri::State<'_, BrowserState>, tab_id: String, input: String) -> Result<serde_json::Value, String> {
+pub async fn navigate_tab(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, tab_id: String, input: String) -> Result<serde_json::Value, String> {
+    let resolved_url = normalize_input_to_url(&input);
     let mut inner = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(t) = inner.tabs.iter_mut().find(|t| t.id == tab_id) {
-        t.url = normalize_input_to_url(&input);
+        t.url = resolved_url.clone();
         t.is_loading = true;
         t.title = "Loading...".to_string();
     }
     drop(inner);
+
+    // Record history in store
+    let _ = store.record_history_internal("default", &resolved_url, "Loading...");
+    persist_workspace(&store, &state).ok();
 
     #[cfg(desktop)]
     {

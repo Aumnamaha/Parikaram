@@ -15,7 +15,7 @@ Built on **`Tauri v2 + Rust`** (WKWebView / WebView2, mobile-ready iOS/Android),
 - [x] 2.2 React vertical sidebar tabs, workspaces/spaces, pinned tabs, split-view frame & Ctrl+Shift+Space command launcher
 
 ### Phase 3: Local-First SQLite + FTS5 Store
-- [ ] 3.1 Bundled SQLite + FTS5 schema (spaces, tabs, history, bookmarks, notes, tasks, profiles) & Rust IPC
+- [x] 3.1 Bundled SQLite + FTS5 schema (spaces, tabs, history, bookmarks, notes, tasks, profiles) & Rust IPC
 - [ ] 3.2 React History search, Bookmarks bar, Notes & Tasks side drawer, and Profile switcher
 
 ### Phase 4: Native Rust Network & Ad/Tracker Blocker
