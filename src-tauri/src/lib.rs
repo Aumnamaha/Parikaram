@@ -136,6 +136,13 @@ pub fn run() {
             adblock::toggle_domain_shield,
             adblock::add_custom_filter_rule,
             adblock::reset_shield_stats,
+            // Canvas commands
+            store::list_canvas_nodes,
+            store::upsert_canvas_node,
+            store::delete_canvas_node,
+            store::list_canvas_edges,
+            store::upsert_canvas_edge,
+            store::delete_canvas_edge,
             // AI commands
             ai::list_ai_providers,
             ai::set_provider_api_key,

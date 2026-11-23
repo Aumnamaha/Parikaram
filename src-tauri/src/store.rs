@@ -52,6 +52,34 @@ pub struct TaskEntry {
     pub created_at: i64,
 }
 
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CanvasNodeRecord {
+    pub id: String,
+    pub profile_id: String,
+    pub space_id: String,
+    pub kind: String,
+    pub title: String,
+    pub content: String,
+    pub url: Option<String>,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub updated_at: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CanvasEdgeRecord {
+    pub id: String,
+    pub profile_id: String,
+    pub space_id: String,
+    pub source_id: String,
+    pub target_id: String,
+    pub label: Option<String>,
+}
+
 fn chrono_utc_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -108,6 +136,16 @@ impl StoreInner {
                 id TEXT PRIMARY KEY, profile_id TEXT NOT NULL,
                 title TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0,
                 due_label TEXT, created_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS canvas_nodes (
+                id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, space_id TEXT NOT NULL,
+                kind TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
+                url TEXT, x REAL NOT NULL, y REAL NOT NULL,
+                width REAL NOT NULL, height REAL NOT NULL, updated_at INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS canvas_edges (
+                id TEXT PRIMARY KEY, profile_id TEXT NOT NULL, space_id TEXT NOT NULL,
+                source_id TEXT NOT NULL, target_id TEXT NOT NULL, label TEXT
             );",
         )?;
 
@@ -620,6 +658,92 @@ pub async fn delete_task(state: tauri::State<'_, StoreState>, id: String) -> Res
     }
     list_tasks(state).await
 }
+// ── Canvas IPC Commands ────────────────────────────────────────
+
+#[tauri::command]
+pub async fn list_canvas_nodes(state: tauri::State<'_, StoreState>, space_id: String) -> Result<Vec<CanvasNodeRecord>, String> {
+    let guard = state.0.lock().map_err(|e| e.to_string())?;
+    let profile_id = guard.active_profile_id.clone();
+    let mut stmt = guard.conn.prepare(
+        "SELECT id, profile_id, space_id, kind, title, content, url, x, y, width, height, updated_at          FROM canvas_nodes WHERE profile_id=?1 AND space_id=?2 ORDER BY updated_at DESC"
+    ).map_err(|e| e.to_string())?;
+    let nodes = stmt.query_map(rusqlite::params![&profile_id, &space_id], |r| {
+        Ok(CanvasNodeRecord {
+            id: r.get(0)?, profile_id: r.get(1)?, space_id: r.get(2)?, kind: r.get(3)?,
+            title: r.get(4)?, content: r.get(5)?, url: r.get(6)?, x: r.get(7)?, y: r.get(8)?,
+            width: r.get(9)?, height: r.get(10)?, updated_at: r.get(11)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    Ok(nodes.filter_map(|r| r.ok()).collect())
+}
+
+#[tauri::command]
+pub async fn upsert_canvas_node(state: tauri::State<'_, StoreState>, node: CanvasNodeRecord) -> Result<Vec<CanvasNodeRecord>, String> {
+    let now = chrono_utc_ms();
+    {
+        let inner = state.0.lock().map_err(|e| e.to_string())?;
+        inner.conn.execute(
+            "INSERT OR REPLACE INTO canvas_nodes (id, profile_id, space_id, kind, title, content, url, x, y, width, height, updated_at)          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            rusqlite::params![&node.id, &node.profile_id, &node.space_id, &node.kind, &node.title,
+                &node.content, &node.url, node.x, node.y, node.width, node.height, now],
+        ).map_err(|e| e.to_string())?;
+    }
+    list_canvas_nodes(state, node.space_id).await
+}
+
+#[tauri::command]
+pub async fn delete_canvas_node(state: tauri::State<'_, StoreState>, space_id: String, id: String) -> Result<Vec<CanvasNodeRecord>, String> {
+    {
+        let inner = state.0.lock().map_err(|e| e.to_string())?;
+        inner.conn.execute(
+            "DELETE FROM canvas_edges WHERE source_id=?1 OR target_id=?1", rusqlite::params![&id]
+        ).map_err(|e| e.to_string())?;
+        inner.conn.execute("DELETE FROM canvas_nodes WHERE id=?1 AND space_id=?2", rusqlite::params![&id, &space_id])
+            .map_err(|e| e.to_string())?;
+    }
+    list_canvas_nodes(state, space_id).await
+}
+
+#[tauri::command]
+pub async fn list_canvas_edges(state: tauri::State<'_, StoreState>, space_id: String) -> Result<Vec<CanvasEdgeRecord>, String> {
+    let guard = state.0.lock().map_err(|e| e.to_string())?;
+    let profile_id = guard.active_profile_id.clone();
+    let mut stmt = guard.conn.prepare(
+        "SELECT id, profile_id, space_id, source_id, target_id, label          FROM canvas_edges WHERE profile_id=?1 AND space_id=?2"
+    ).map_err(|e| e.to_string())?;
+    let edges = stmt.query_map(rusqlite::params![&profile_id, &space_id], |r| {
+        Ok(CanvasEdgeRecord {
+            id: r.get(0)?, profile_id: r.get(1)?, space_id: r.get(2)?,
+            source_id: r.get(3)?, target_id: r.get(4)?, label: r.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    Ok(edges.filter_map(|r| r.ok()).collect())
+}
+
+#[tauri::command]
+pub async fn upsert_canvas_edge(state: tauri::State<'_, StoreState>, edge: CanvasEdgeRecord) -> Result<Vec<CanvasEdgeRecord>, String> {
+    let space_id = edge.space_id.clone();
+    {
+        let inner = state.0.lock().map_err(|e| e.to_string())?;
+        inner.conn.execute(
+            "INSERT OR REPLACE INTO canvas_edges (id, profile_id, space_id, source_id, target_id, label)          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![&edge.id, &edge.profile_id, &edge.space_id, &edge.source_id, &edge.target_id, &edge.label],
+        ).map_err(|e| e.to_string())?;
+    }
+    list_canvas_edges(state, space_id).await
+}
+
+#[tauri::command]
+pub async fn delete_canvas_edge(state: tauri::State<'_, StoreState>, space_id: String, id: String) -> Result<Vec<CanvasEdgeRecord>, String> {
+    {
+        let inner = state.0.lock().map_err(|e| e.to_string())?;
+        inner.conn.execute("DELETE FROM canvas_edges WHERE id=?1 AND space_id=?2", rusqlite::params![&id, &space_id])
+            .map_err(|e| e.to_string())?;
+    }
+    list_canvas_edges(state, space_id).await
+}
+
+
 
 // ── Unit Tests ──────────────────────────────────────────────────
 
@@ -827,5 +951,127 @@ mod tests {
         assert_eq!(spaces.len(), 0);
         assert_eq!(loaded_tabs.len(), 1);
         assert_eq!(loaded_tabs[0]["title"], "Tab 1");
+    }
+
+    #[test]
+    fn test_canvas_nodes_crud_and_space_isolation() {
+        let store = make_store().expect("failed to create in-memory store");
+        let nid1 = uuid::Uuid::new_v4().to_string();
+        let nid2 = uuid::Uuid::new_v4().to_string();
+        let now = chrono_utc_ms();
+
+        // Insert nodes for different spaces
+        {
+            let g = store.0.lock().unwrap();
+            g.conn.execute(
+                "INSERT INTO canvas_nodes (id, profile_id, space_id, kind, title, content, url, x, y, width, height, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                rusqlite::params![&nid1, &g.active_profile_id, "space-work", "web", "Work Page", "https://work.com",
+                    Some("https://work.com".to_string()), 100.0, 200.0, 300.0, 200.0, now],
+            ).unwrap();
+            g.conn.execute(
+                "INSERT INTO canvas_nodes (id, profile_id, space_id, kind, title, content, url, x, y, width, height, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                rusqlite::params![&nid2, &g.active_profile_id, "space-personal", "ai-card", "AI Card", "Research",
+                    None::<String>, 50.0, 100.0, 400.0, 300.0, now],
+            ).unwrap();
+        }
+
+        // Query work space nodes count
+        {
+            let guard = store.0.lock().unwrap();
+            let count: i64 = guard.conn.query_row(
+                "SELECT COUNT(*) FROM canvas_nodes WHERE profile_id=?1 AND space_id=?2",
+                rusqlite::params![&guard.active_profile_id, "space-work"], |r| r.get(0),
+            ).unwrap();
+            assert_eq!(count, 1);
+        }
+
+        // Query personal space nodes count
+        {
+            let guard = store.0.lock().unwrap();
+            let count: i64 = guard.conn.query_row(
+                "SELECT COUNT(*) FROM canvas_nodes WHERE profile_id=?1 AND space_id=?2",
+                rusqlite::params![&guard.active_profile_id, "space-personal"], |r| r.get(0),
+            ).unwrap();
+            assert_eq!(count, 1);
+        }
+
+        // Delete node and verify it is gone
+        {
+            let g = store.0.lock().unwrap();
+            g.conn.execute("DELETE FROM canvas_nodes WHERE id=?1 AND space_id=?2", rusqlite::params![&nid1, "space-work"]).unwrap();
+        }
+        {
+            let guard = store.0.lock().unwrap();
+            let count: i64 = guard.conn.query_row(
+                "SELECT COUNT(*) FROM canvas_nodes WHERE id=?1", rusqlite::params![&nid1], |r| r.get(0),
+            ).unwrap_or(0);
+            assert_eq!(count, 0);
+        }
+    }
+
+    #[test]
+    fn test_canvas_edges_cascade_on_node_delete() {
+        let store = make_store().expect("failed to create in-memory store");
+        let sid = uuid::Uuid::new_v4().to_string();
+        let tid = uuid::Uuid::new_v4().to_string();
+        let eid = uuid::Uuid::new_v4().to_string();
+
+        // Insert nodes and edge
+        {
+            let g = store.0.lock().unwrap();
+            g.conn.execute(
+                "INSERT INTO canvas_nodes (id, profile_id, space_id, kind, title, content, url, x, y, width, height, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, 0.0, 0.0, 200.0, 150.0, ?7)",
+                rusqlite::params![&sid, &g.active_profile_id, "space-work", "web", "Source", "", chrono_utc_ms()],
+            ).unwrap();
+            g.conn.execute(
+                "INSERT INTO canvas_nodes (id, profile_id, space_id, kind, title, content, url, x, y, width, height, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, 300.0, 0.0, 200.0, 150.0, ?7)",
+                rusqlite::params![&tid, &g.active_profile_id, "space-work", "ai-card", "Target", "", chrono_utc_ms()],
+            ).unwrap();
+            g.conn.execute(
+                "INSERT INTO canvas_edges (id, profile_id, space_id, source_id, target_id, label) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![&eid, &g.active_profile_id, "space-work", &sid, &tid, Some("links to".to_string())],
+            ).unwrap();
+        }
+
+        // Verify edge exists
+        {
+            let guard = store.0.lock().unwrap();
+            let count: i64 = guard.conn.query_row(
+                "SELECT COUNT(*) FROM canvas_edges WHERE source_id=?1", rusqlite::params![&sid], |r| r.get(0),
+            ).unwrap();
+            assert_eq!(count, 1);
+        }
+
+        // Delete edges first (mimics delete_canvas_node cascade logic)
+        {
+            let g = store.0.lock().unwrap();
+            g.conn.execute(
+                "DELETE FROM canvas_edges WHERE source_id=?1 OR target_id=?1",
+                rusqlite::params![&sid],
+            ).unwrap();
+        }
+        // Delete source node
+        {
+            let g = store.0.lock().unwrap();
+            g.conn.execute("DELETE FROM canvas_nodes WHERE id=?1 AND space_id=?2", rusqlite::params![&sid, "space-work"]).unwrap();
+        }
+
+        // Verify edge was deleted too (cascade)
+        {
+            let guard = store.0.lock().unwrap();
+            let count: i64 = guard.conn.query_row(
+                "SELECT COUNT(*) FROM canvas_edges WHERE source_id=?1", rusqlite::params![&sid], |r| r.get(0),
+            ).unwrap_or(0);
+            assert_eq!(count, 0);
+        }
+
+        // Verify target node still exists independently
+        {
+            let guard = store.0.lock().unwrap();
+            let count: i64 = guard.conn.query_row(
+                "SELECT COUNT(*) FROM canvas_nodes WHERE id=?1", rusqlite::params![&tid], |r| r.get(0),
+            ).unwrap_or(0);
+            assert_eq!(count, 1);
+        }
     }
 }

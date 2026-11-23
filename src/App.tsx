@@ -9,6 +9,7 @@ import { ViewportHost } from "./components/ViewportHost";
 import { BookmarksBar } from "./components/BookmarksBar";
 import { WorkspaceDrawer } from "./components/WorkspaceDrawer";
 import { AiSidebar } from "./components/AiSidebar";
+import { WorkCanvas } from "./components/WorkCanvas";
 
 function App() {
   const [snap, setSnap] = useState<BrowserSnapshot | null>(null);
@@ -17,6 +18,7 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
+  const [workMode, setWorkMode] = useState(false);
 
   // Store state (Phase 3B)
   const [_profiles, setProfiles] = useState<ProfileRecord[]>([]);
@@ -73,6 +75,16 @@ function App() {
     fetchShieldStatus();
   }, [refreshTabs, refreshStore, fetchShieldStatus]);
 
+  // Hide native child WebViews when in Work Canvas mode or command palette open
+  const setOverlayHidden = useCallback((hidden: boolean) => {
+    invoke("set_overlay_hidden", { hidden }).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    const overlayHidden = workMode || commandPaletteOpen;
+    setOverlayHidden(overlayHidden);
+  }, [workMode, commandPaletteOpen, setOverlayHidden]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -104,6 +116,9 @@ function App() {
       } else if ((isCtrlOrCmd || e.metaKey) && e.key === "e") {
         e.preventDefault();
         setAiSidebarOpen((prev) => !prev);
+      } else if (isCtrlOrCmd && e.shiftKey && (e.key === "w" || e.key === "W")) {
+        e.preventDefault();
+        setWorkMode((p) => !p);
       } else if (e.key === "Escape") {
         if (commandPaletteOpen) setCommandPaletteOpen(false);
         if (drawerOpen) setDrawerOpen(false);
@@ -112,7 +127,7 @@ function App() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [snap, commandPaletteOpen, drawerOpen, aiSidebarOpen, refreshTabs]);
+  }, [snap, commandPaletteOpen, drawerOpen, aiSidebarOpen, workMode, refreshTabs]);
 
   const toggleSplitView = async () => {
     if (!snap) return;
@@ -137,37 +152,44 @@ function App() {
 
       {/* TopBar */}
       {snap && (
-        <TopBar snap={snap} onRefresh={() => { refreshTabs(); fetchShieldStatus(); }} onToggleSplit={toggleSplitView} onOpenCommandPalette={() => setCommandPaletteOpen(true)} onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)} shieldStatus={shieldStatus} onShieldPopoverToggle={(open) => { if (open) invoke("set_overlay_hidden", { hidden: true }).catch(console.error); else invoke("set_overlay_hidden", { hidden: false }).catch(console.error); }} />
+        <TopBar snap={snap} onRefresh={() => { refreshTabs(); fetchShieldStatus(); }} onToggleSplit={toggleSplitView} onOpenCommandPalette={() => setCommandPaletteOpen(true)} onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)} shieldStatus={shieldStatus} onShieldPopoverToggle={(open) => { if (open) invoke("set_overlay_hidden", { hidden: true }).catch(console.error); else invoke("set_overlay_hidden", { hidden: false }).catch(console.error); }} workMode={workMode} onToggleWorkMode={() => setWorkMode((p) => !p)} />
       )}
 
-      {/* Bookmarks Bar */}
-      {snap && (
+      {/* Bookmarks Bar (browser mode only) */}
+      {!workMode && snap && (
         <BookmarksBar bookmarks={bookmarks} snap={snap} onRefresh={refreshStore} />
       )}
 
-      {/* Main content area: Sidebar + ViewportHost + WorkspaceDrawer */}
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar snap={snap} onRefresh={refreshTabs} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((p) => !p)} profiles={_profiles} activeProfileId={_activeProfileId} />
-        <ViewportHost snap={snap} onRefresh={refreshTabs} />
+      {workMode ? (
+        /* ── Work Canvas Mode ──────────────────────────────── */
+        <div className="flex-1 overflow-hidden relative">
+          <WorkCanvas snap={snap} activeSpaceId={snap?.active_space_id} />
+        </div>
+      ) : (
+        /* ── Browser Mode ──────────────────────────────────── */
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar snap={snap} onRefresh={refreshTabs} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((p) => !p)} profiles={_profiles} activeProfileId={_activeProfileId} />
+          <ViewportHost snap={snap} onRefresh={refreshTabs} />
 
-        {/* Workspace Drawer */}
-        {drawerOpen && (
-          <WorkspaceDrawer
-            open={drawerOpen}
-            activeTab={drawerTab}
-            onClose={() => setDrawerOpen(false)}
-            onTabChange={(tab) => setDrawerTab(tab)}
-          />
-        )}
+          {/* Workspace Drawer */}
+          {drawerOpen && (
+            <WorkspaceDrawer
+              open={drawerOpen}
+              activeTab={drawerTab}
+              onClose={() => setDrawerOpen(false)}
+              onTabChange={(tab) => setDrawerTab(tab)}
+            />
+          )}
 
-        {/* AI Assistant Sidebar */}
-        {aiSidebarOpen && (
-          <AiSidebar snap={snap} onClose={() => setAiSidebarOpen(false)} />
-        )}
-      </div>
+          {/* AI Assistant Sidebar */}
+          {aiSidebarOpen && (
+            <AiSidebar snap={snap} onClose={() => setAiSidebarOpen(false)} />
+          )}
+        </div>
+      )}
 
-      {/* Command Palette */}
-      {commandPaletteOpen && snap && (
+      {/* Command Palette (browser mode only) */}
+      {!workMode && commandPaletteOpen && snap && (
         <CommandPalette snap={snap} onRefresh={refreshTabs} onClose={() => setCommandPaletteOpen(false)} onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)} />
       )}
     </div>

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, ArrowRight, RotateCw, Search, SplitSquareHorizontal, Command, ShieldCheck, ShieldOff, Bot } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCw, Search, SplitSquareHorizontal, Command, ShieldCheck, ShieldOff, Bot, Layers, Grid3X3 } from "lucide-react";
 import type { BrowserSnapshot } from "../types/browser";
 import type { ShieldStatus, BlockedEvent } from "../types/store";
 
@@ -12,13 +12,15 @@ interface TopBarProps {
   onToggleAiSidebar?: () => void;
   shieldStatus?: ShieldStatus | null;
   onShieldPopoverToggle: (open: boolean) => void;
+  workMode?: boolean;
+  onToggleWorkMode?: () => void;
 }
 
 function getHost(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }
 
-export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, onToggleAiSidebar, shieldStatus, onShieldPopoverToggle }: TopBarProps) {
+export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, onToggleAiSidebar, shieldStatus, onShieldPopoverToggle, workMode, onToggleWorkMode }: TopBarProps) {
   const [omniboxValue, setOmniboxValue] = useState("");
   const omniboxRef = useRef<HTMLInputElement>(null);
   const [shieldOpen, setShieldOpen] = useState(false);
@@ -182,10 +184,24 @@ export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, o
         <Command size={16} />
       </button>
 
-      {/* Active tab URL hint */}
+      {/* Work Canvas mode toggle */}
+      {onToggleWorkMode && (
+        <div className="flex items-center rounded-lg border overflow-hidden" style={{ WebkitAppRegion: "no-drag" } as any}>
+          <button onClick={() => workMode && onToggleWorkMode()} className={`px-2 py-1 text-[10px] transition-colors ${!workMode ? "bg-[var(--accent)]/20 text-[var(--accent)] font-medium" : "text-[var(--text-secondary)] hover:bg-white/5"}`} title="Browser Mode">
+            <Layers size={12} />
+          </button>
+          <div className="w-px h-4 bg-[var(--border-subtle)]" />
+          <button onClick={() => !workMode && onToggleWorkMode()} className={`px-2 py-1 text-[10px] transition-colors ${workMode ? "bg-violet-500/20 text-violet-400 font-medium" : "text-[var(--text-secondary)] hover:bg-white/5"}`} title="Spatial Work Canvas (Ctrl+Shift+W)">
+            <Grid3X3 size={12} />
+          </button>
+        </div>
+      )}
+
+      {/* Active tab URL hint / mode indicator */}
       {snap.split_tab_id && (
         <span className="text-[10px] text-[var(--text-secondary)] px-2 py-1 rounded bg-white/5 flex-shrink-0">Split: {getHost(activeTab.url)}</span>
       )}
+      {workMode && <span className="text-[10px] text-violet-400 px-2 py-1 rounded bg-violet-500/10 flex-shrink-0 font-medium">Work Canvas</span>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Search, Globe, Folder, Monitor, SplitSquareHorizontal, X, Bot } from "lucide-react";
+import { Search, Globe, Folder, Monitor, SplitSquareHorizontal, X, Bot, Layers } from "lucide-react";
 import type { BrowserSnapshot } from "../types/browser";
 import type { HistoryEntry, BookmarkEntry } from "../types/store";
 
@@ -11,7 +11,7 @@ interface CommandPaletteProps {
   onToggleAiSidebar?: () => void;
 }
 
-type ActionType = "navigate" | "switchTab" | "switchSpace" | "splitView" | "search" | "toggleAiSidebar" | "askAiCurrentPage";
+type ActionType = "navigate" | "switchTab" | "switchSpace" | "splitView" | "search" | "toggleAiSidebar" | "askAiCurrentPage" | "switchToCanvas" | "switchToBrowser";
 
 interface ActionItem {
   id: string;
@@ -76,6 +76,12 @@ export function CommandPalette({ snap, onRefresh, onClose, onToggleAiSidebar }: 
         id: `space-${space.id}`, label: space.name, subtitle: `${tabCount} tabs`, icon: <Folder size={14} />, actionType: "switchSpace", payload: space.id,
       });
     });
+
+    // Mode toggles (always available)
+    items.push({ id: "canvas-on", label: "Switch to Spatial Work Canvas", subtitle: "Infinite pan/zoom canvas with AI agent cards (Ctrl+Shift+W)", icon: <Layers size={14} />, actionType: "switchToCanvas" });
+    if (snap.split_tab_id) {
+      items.push({ id: "canvas-off", label: "Switch to Browser Mode", subtitle: "Return to tabbed browsing (Ctrl+Shift+B)", icon: <Globe size={14} />, actionType: "switchToBrowser" });
+    }
 
     // Toggle AI Assistant Sidebar
     items.push({ id: "ai-toggle", label: "Toggle AI Assistant", subtitle: "Open sidebar with Ctrl+E", icon: <Bot size={14} />, actionType: "toggleAiSidebar" });

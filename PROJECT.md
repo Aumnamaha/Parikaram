@@ -26,5 +26,5 @@ Built on **`Tauri v2 + Rust`** (WKWebView / WebView2, mobile-ready iOS/Android),
 - [x] 5.2 React AI Assistant sidebar (Ctrl+E) with active-tab context injection, model switcher & OS Keychain API key management
 
 ### Phase 6: Infinite Spatial Work Mode Canvas & Mobile Packaging
-- [ ] 6.1 Pan/zoom spatial Work Canvas with parallel AI agent web cards, tables & code blocks
+- [x] 6.1 Pan/zoom spatial Work Canvas with parallel AI agent web cards, tables & code blocks
 - [ ] 6.2 End-to-end test suite, release bundle verification & macOS/iOS/Android target validation
