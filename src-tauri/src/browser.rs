@@ -70,7 +70,7 @@ impl Default for BrowserInner {
 pub struct BrowserState(pub Mutex<BrowserInner>);
 
 impl BrowserState {
-    fn snapshot(&self) -> BrowserSnapshot {
+    pub fn snapshot(&self) -> BrowserSnapshot {
         let inner = self.0.lock().unwrap();
         BrowserSnapshot {
             spaces: inner.spaces.clone(),

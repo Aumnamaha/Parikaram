@@ -65,10 +65,10 @@ pub struct AiStreamErrorEvent { pub request_id: String, pub error: String }
 // Internal state
 // ---------------------------------------------------------------------------
 
-pub(crate) struct AiInner {
-    providers: Vec<AiProviderInfo>,
+pub struct AiInner {
+    pub providers: Vec<AiProviderInfo>,
     cancellation_flags: HashMap<String, Arc<AtomicBool>>,
-    use_memory_keyring: bool,
+    pub use_memory_keyring: bool,
     memory_secrets: HashMap<String, String>,
 }
 
@@ -151,7 +151,7 @@ pub fn build_system_prompt_with_context(page_title: Option<&str>, page_url: Opti
 // ---------------------------------------------------------------------------
 
 impl AiInner {
-    fn get_api_key(&self, provider_id: &str) -> Option<String> {
+    pub fn get_api_key(&self, provider_id: &str) -> Option<String> {
         if self.use_memory_keyring { return self.memory_secrets.get(provider_id).cloned(); }
         if let Ok(entry) = keyring::Entry::new("app.parikaram.ai", provider_id) {
             match entry.get_password() { Ok(key) => return Some(key), Err(_) => {} }
@@ -159,7 +159,7 @@ impl AiInner {
         None
     }
 
-    fn set_api_key(&mut self, provider_id: &str, api_key: &str) -> Result<(), String> {
+    pub fn set_api_key(&mut self, provider_id: &str, api_key: &str) -> Result<(), String> {
         if self.use_memory_keyring {
             self.memory_secrets.insert(provider_id.to_string(), api_key.to_string());
             return Ok(());
@@ -170,7 +170,7 @@ impl AiInner {
         }
     }
 
-    fn delete_api_key(&mut self, provider_id: &str) -> Result<(), String> {
+    pub fn delete_api_key(&mut self, provider_id: &str) -> Result<(), String> {
         if self.use_memory_keyring {
             self.memory_secrets.remove(provider_id);
             return Ok(());
@@ -180,6 +180,12 @@ impl AiInner {
             Ok(entry) => entry.set_password("").map_err(|e| e.to_string()),
             Err(_) => Ok(()), // silently ignore missing entries
         }
+    }
+
+    #[allow(dead_code)]
+    #[allow(dead_code)]
+    pub fn has_provider_api_key(&self, provider_id: &str) -> bool {
+        self.get_api_key(provider_id).is_some()
     }
 
     fn refresh_provider_info(&self, info: &AiProviderInfo) -> AiProviderInfo {

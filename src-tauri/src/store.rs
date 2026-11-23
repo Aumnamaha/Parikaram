@@ -88,7 +88,7 @@ fn chrono_utc_ms() -> i64 {
 }
 
 pub struct StoreInner {
-    conn: rusqlite::Connection,
+    pub conn: rusqlite::Connection,
     pub active_profile_id: String,
     db_path: PathBuf,
 }

@@ -101,9 +101,9 @@ pub struct ShieldStatus {
 
 /// Internal mutable state of the ad blocker engine.
 pub struct AdblockInner {
-    enabled: bool,
-    disabled_domains: HashSet<String>,
-    total_blocked: u64,
+    pub enabled: bool,
+    pub disabled_domains: HashSet<String>,
+    pub total_blocked: u64,
     blocked_by_tab: HashMap<String, u64>,
     recent_blocked: Vec<BlockedEvent>,
     custom_rules: Vec<String>,
@@ -131,7 +131,7 @@ enum PatternKind {
 }
 
 impl AdblockInner {
-    fn new() -> Self {
+    pub fn new() -> Self {
         let mut inner = Self {
             enabled: true,
             disabled_domains: HashSet::new(),
