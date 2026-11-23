@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { BrowserSnapshot, AppInfo } from "./types/browser";
-import type { ProfileRecord, BookmarkEntry, NoteEntry, TaskEntry, DrawerTab } from "./types/store";
+import type { ProfileRecord, BookmarkEntry, NoteEntry, TaskEntry, DrawerTab, ShieldStatus } from "./types/store";
 import { Sidebar } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { CommandPalette } from "./components/CommandPalette";
@@ -24,6 +24,9 @@ function App() {
   const [_tasks, setTasks] = useState<TaskEntry[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>("history");
+
+  // Shield state (Phase 4)
+  const [shieldStatus, setShieldStatus] = useState<ShieldStatus | null>(null);
 
   const refreshTabs = useCallback(async () => {
     try {
@@ -51,13 +54,22 @@ function App() {
     } catch (e) { console.error("Failed to refresh store:", e); }
   }, []);
 
+  const fetchShieldStatus = useCallback(async () => {
+    if (!snap || !snap.active_tab_id) return;
+    try {
+      const data = await invoke("get_shield_status", { activeUrl: snap.tabs.find(t => t.id === snap.active_tab_id)?.url, activeTabId: snap.active_tab_id });
+      setShieldStatus(data as ShieldStatus);
+    } catch (e) { console.error("Failed to fetch shield status:", e); }
+  }, [snap]);
+
   useEffect(() => {
     Promise.all([
       refreshTabs(),
       invoke("get_app_info").then((info) => setAppInfo(info as AppInfo)).catch(console.error),
       refreshStore(),
     ]).catch((e) => setError(String(e)));
-  }, [refreshTabs, refreshStore]);
+    fetchShieldStatus();
+  }, [refreshTabs, refreshStore, fetchShieldStatus]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -120,7 +132,7 @@ function App() {
 
       {/* TopBar */}
       {snap && (
-        <TopBar snap={snap} onRefresh={refreshTabs} onToggleSplit={toggleSplitView} onOpenCommandPalette={() => setCommandPaletteOpen(true)} />
+        <TopBar snap={snap} onRefresh={() => { refreshTabs(); fetchShieldStatus(); }} onToggleSplit={toggleSplitView} onOpenCommandPalette={() => setCommandPaletteOpen(true)} shieldStatus={shieldStatus} onShieldPopoverToggle={(open) => { if (open) invoke("set_overlay_hidden", { hidden: true }).catch(console.error); else invoke("set_overlay_hidden", { hidden: false }).catch(console.error); }} />
       )}
 
       {/* Bookmarks Bar */}

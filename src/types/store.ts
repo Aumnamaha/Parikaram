@@ -43,3 +43,22 @@ export interface TaskEntry {
 }
 
 export type DrawerTab = "history" | "notes" | "tasks";
+
+/** Shield / ad blocker types */
+export interface BlockedEvent {
+  url: string;
+  domain: string;
+  tab_id: string | null;
+  timestamp: number;
+}
+
+export interface ShieldStatus {
+  enabled: boolean;
+  active_domain: string;
+  active_domain_enabled: boolean;
+  total_blocked: number;
+  active_tab_blocked: number;
+  disabled_domains: string[];
+  custom_rules_count: number;
+  recent_blocked: BlockedEvent[];
+}

@@ -98,6 +98,9 @@ pub(crate) fn sync_native_webviews(app: &AppHandle, snap: &BrowserSnapshot) {
     let Some(window) = app.get_window("main") else { return; };
     let (primary_rect, split_rect) = compute_pane_rects(&snap.viewport, snap.split_tab_id.is_some());
 
+    // Build shield init script for child webviews
+    let shield_script = crate::adblock::AdblockInner::build_shield_init_script(true);
+
     let valid_ids: std::collections::HashSet<String> = snap.tabs.iter().map(|t| t.id.clone()).collect();
 
     // app.webviews() returns (String label, Webview) tuples
@@ -135,7 +138,7 @@ pub(crate) fn sync_native_webviews(app: &AppHandle, snap: &BrowserSnapshot) {
                 let _ = wv.show();
             } else if let Some(tab) = snap.tabs.iter().find(|t| t.id == *aid) {
                 let parsed_url: tauri::Url = tab.url.parse().unwrap_or_else(|_| "https://example.com".parse().unwrap());
-                let _ = window.add_child(WebviewBuilder::new(&label, WebviewUrl::External(parsed_url)).auto_resize(), LogicalPosition::new(primary_rect.x, primary_rect.y), LogicalSize::new(primary_rect.width, primary_rect.height));
+                let _ = window.add_child(WebviewBuilder::new(&label, WebviewUrl::External(parsed_url)).auto_resize().initialization_script(&shield_script), LogicalPosition::new(primary_rect.x, primary_rect.y), LogicalSize::new(primary_rect.width, primary_rect.height));
             }
         } else {
             if let Some(wv) = app.get_webview(&format!("tab-{}", aid)) { let _ = wv.hide(); }
@@ -153,7 +156,7 @@ pub(crate) fn sync_native_webviews(app: &AppHandle, snap: &BrowserSnapshot) {
             } else if let Some(tab) = snap.tabs.iter().find(|t| t.id == *sid) {
                 if let Some(ref rr) = split_rect {
                     let parsed_url: tauri::Url = tab.url.parse().unwrap_or_else(|_| "https://example.com".parse().unwrap());
-                    let _ = window.add_child(WebviewBuilder::new(&format!("tab-{}", sid), WebviewUrl::External(parsed_url)).auto_resize(), LogicalPosition::new(rr.x, rr.y), LogicalSize::new(rr.width, rr.height));
+                    let _ = window.add_child(WebviewBuilder::new(&format!("tab-{}", sid), WebviewUrl::External(parsed_url)).auto_resize().initialization_script(&shield_script), LogicalPosition::new(rr.x, rr.y), LogicalSize::new(rr.width, rr.height));
                 }
             }
         } else {
@@ -220,11 +223,18 @@ pub async fn switch_space(app: AppHandle, store: tauri::State<'_, crate::store::
 }
 
 #[tauri::command]
-pub async fn create_tab(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, url: Option<String>, pinned: Option<bool>) -> Result<serde_json::Value, String> {
+pub async fn create_tab(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, adblock: tauri::State<'_, crate::adblock::AdblockState>, url: Option<String>, pinned: Option<bool>) -> Result<serde_json::Value, String> {
     let mut inner = state.0.lock().map_err(|e| e.to_string())?;
     for t in &mut inner.tabs { if t.is_active { t.is_active = false } }
     let tid = uuid::Uuid::new_v4().to_string();
-    let target_url = url.unwrap_or_else(|| normalize_input_to_url(""));
+    let mut target_url = url.unwrap_or_else(|| normalize_input_to_url(""));
+    // Block ad/tracker URLs on tab creation
+    {
+        let mut ab = adblock.0.lock().map_err(|e| e.to_string())?;
+        if ab.check_url(&target_url, &target_url, "document", None) {
+            target_url = "https://example.com".to_string();
+        }
+    }
     let new_tab = TabInfo { id: tid.clone(), space_id: inner.active_space_id.clone(), title: "New Tab".to_string(), url: target_url, pinned: pinned.unwrap_or(false), is_active: true, is_loading: false };
     inner.tabs.push(new_tab);
     inner.active_tab_id = Some(tid.clone());
@@ -271,18 +281,27 @@ pub async fn close_tab(app: AppHandle, store: tauri::State<'_, crate::store::Sto
 }
 
 #[tauri::command]
-pub async fn navigate_tab(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, tab_id: String, input: String) -> Result<serde_json::Value, String> {
+pub async fn navigate_tab(app: AppHandle, store: tauri::State<'_, crate::store::StoreState>, state: tauri::State<'_, BrowserState>, adblock: tauri::State<'_, crate::adblock::AdblockState>, tab_id: String, input: String) -> Result<serde_json::Value, String> {
     let resolved_url = normalize_input_to_url(&input);
+    // Block ad/tracker URLs on navigation
+    let final_url = {
+        let mut ab = adblock.0.lock().map_err(|e| e.to_string())?;
+        if ab.check_url(&resolved_url, &resolved_url, "document", Some(&tab_id)) {
+            "https://example.com".to_string()
+        } else {
+            resolved_url.clone()
+        }
+    };
     let mut inner = state.0.lock().map_err(|e| e.to_string())?;
     if let Some(t) = inner.tabs.iter_mut().find(|t| t.id == tab_id) {
-        t.url = resolved_url.clone();
+        t.url = final_url.clone();
         t.is_loading = true;
         t.title = "Loading...".to_string();
     }
     drop(inner);
 
     // Record history in store
-    let _ = store.record_history_internal("default", &resolved_url, "Loading...");
+    let _ = store.record_history_internal("default", &final_url, "Loading...");
     persist_workspace(&store, &state).ok();
 
     #[cfg(desktop)]
