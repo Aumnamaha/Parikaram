@@ -23,7 +23,7 @@ Built on **`Tauri v2 + Rust`** (WKWebView / WebView2, mobile-ready iOS/Android),
 
 ### Phase 5: Multi-Provider & Local AI Sidebar (Ctrl+E)
 - [x] 5.1 Rust streaming SSE client for LM Studio (127.0.0.1:1234/v1), Ollama & cloud APIs + OS Keychain storage
-- [ ] 5.2 React AI Assistant sidebar with active-tab context injection & model switcher
+- [x] 5.2 React AI Assistant sidebar (Ctrl+E) with active-tab context injection, model switcher & OS Keychain API key management
 
 ### Phase 6: Infinite Spatial Work Mode Canvas & Mobile Packaging
 - [ ] 6.1 Pan/zoom spatial Work Canvas with parallel AI agent web cards, tables & code blocks

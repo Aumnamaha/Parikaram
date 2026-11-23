@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Search, Globe, Folder, Monitor, SplitSquareHorizontal, X } from "lucide-react";
+import { Search, Globe, Folder, Monitor, SplitSquareHorizontal, X, Bot } from "lucide-react";
 import type { BrowserSnapshot } from "../types/browser";
 import type { HistoryEntry, BookmarkEntry } from "../types/store";
 
@@ -8,9 +8,10 @@ interface CommandPaletteProps {
   snap: BrowserSnapshot | null;
   onRefresh: () => void;
   onClose: () => void;
+  onToggleAiSidebar?: () => void;
 }
 
-type ActionType = "navigate" | "switchTab" | "switchSpace" | "splitView" | "search";
+type ActionType = "navigate" | "switchTab" | "switchSpace" | "splitView" | "search" | "toggleAiSidebar" | "askAiCurrentPage";
 
 interface ActionItem {
   id: string;
@@ -21,7 +22,7 @@ interface ActionItem {
   payload?: string;
 }
 
-export function CommandPalette({ snap, onRefresh, onClose }: CommandPaletteProps) {
+export function CommandPalette({ snap, onRefresh, onClose, onToggleAiSidebar }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [historyResults, setHistoryResults] = useState<HistoryEntry[]>([]);
@@ -76,6 +77,15 @@ export function CommandPalette({ snap, onRefresh, onClose }: CommandPaletteProps
       });
     });
 
+    // Toggle AI Assistant Sidebar
+    items.push({ id: "ai-toggle", label: "Toggle AI Assistant", subtitle: "Open sidebar with Ctrl+E", icon: <Bot size={14} />, actionType: "toggleAiSidebar" });
+
+    // Ask AI about current page
+    const activeTab = snap.tabs.find(t => t.id === snap.active_tab_id);
+    if (activeTab) {
+      items.push({ id: "ai-ask", label: "Ask AI About This Page", subtitle: `Attach ${getHost(activeTab.url)} context`, icon: <Bot size={14} />, actionType: "askAiCurrentPage" });
+    }
+
     // Toggle split view
     if (snap.split_tab_id) {
       items.push({ id: "split-off", label: "Close Split View", subtitle: "Return to single pane", icon: <X size={14} />, actionType: "splitView" });
@@ -94,6 +104,19 @@ export function CommandPalette({ snap, onRefresh, onClose }: CommandPaletteProps
   const handleAction = async (item: ActionItem) => {
     if (!snap) return;
     switch (item.actionType) {
+      case "toggleAiSidebar":
+        onToggleAiSidebar?.();
+        onClose();
+        return;
+      case "askAiCurrentPage": {
+        const tab = snap.tabs.find(t => t.id === snap.active_tab_id);
+        if (!tab) break;
+        const pageContext = `Page: ${tab.title || "Untitled"} (${tab.url})`;
+        // Open AI sidebar (parent handles it); pass context via a custom event or store
+        window.dispatchEvent(new CustomEvent("parikaram-ai-ask-page", { detail: { url: tab.url, title: tab.title || "Untitled", pageContext } }));
+        onClose();
+        return;
+      }
       case "navigate":
         await invoke("create_tab", { url: item.payload, pinned: false }).then(onRefresh).catch(console.error);
         break;

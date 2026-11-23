@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ArrowLeft, ArrowRight, RotateCw, Search, SplitSquareHorizontal, Command, ShieldCheck, ShieldOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, RotateCw, Search, SplitSquareHorizontal, Command, ShieldCheck, ShieldOff, Bot } from "lucide-react";
 import type { BrowserSnapshot } from "../types/browser";
 import type { ShieldStatus, BlockedEvent } from "../types/store";
 
@@ -9,6 +9,7 @@ interface TopBarProps {
   onRefresh: () => void;
   onToggleSplit: () => void;
   onOpenCommandPalette: () => void;
+  onToggleAiSidebar?: () => void;
   shieldStatus?: ShieldStatus | null;
   onShieldPopoverToggle: (open: boolean) => void;
 }
@@ -17,7 +18,7 @@ function getHost(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
 }
 
-export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, shieldStatus, onShieldPopoverToggle }: TopBarProps) {
+export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, onToggleAiSidebar, shieldStatus, onShieldPopoverToggle }: TopBarProps) {
   const [omniboxValue, setOmniboxValue] = useState("");
   const omniboxRef = useRef<HTMLInputElement>(null);
   const [shieldOpen, setShieldOpen] = useState(false);
@@ -168,6 +169,13 @@ export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, s
       <button onClick={onToggleSplit} className={`w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 transition-colors ${snap.split_tab_id ? "text-[var(--accent)]" : ""}`} title="Toggle split view (Ctrl+\)" style={{ WebkitAppRegion: "no-drag" } as any}>
         <SplitSquareHorizontal size={16} />
       </button>
+
+      {/* AI Assistant toggle */}
+      {onToggleAiSidebar && (
+        <button onClick={onToggleAiSidebar} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 transition-colors text-violet-400" title="AI Assistant (Ctrl+E)" style={{ WebkitAppRegion: "no-drag" } as any}>
+          <Bot size={16} />
+        </button>
+      )}
 
       {/* Command palette trigger */}
       <button onClick={onOpenCommandPalette} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 transition-colors text-[var(--text-secondary)]" title="Command Palette (Ctrl+Shift+Space)" style={{ WebkitAppRegion: "no-drag" } as any}>

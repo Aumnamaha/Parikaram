@@ -8,6 +8,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { ViewportHost } from "./components/ViewportHost";
 import { BookmarksBar } from "./components/BookmarksBar";
 import { WorkspaceDrawer } from "./components/WorkspaceDrawer";
+import { AiSidebar } from "./components/AiSidebar";
 
 function App() {
   const [snap, setSnap] = useState<BrowserSnapshot | null>(null);
@@ -15,6 +16,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
 
   // Store state (Phase 3B)
   const [_profiles, setProfiles] = useState<ProfileRecord[]>([]);
@@ -99,6 +101,9 @@ function App() {
       } else if (isCtrlOrCmd && e.key === "d" && e.shiftKey) {
         e.preventDefault();
         setDrawerOpen((prev) => !prev);
+      } else if ((isCtrlOrCmd || e.metaKey) && e.key === "e") {
+        e.preventDefault();
+        setAiSidebarOpen((prev) => !prev);
       } else if (e.key === "Escape") {
         if (commandPaletteOpen) setCommandPaletteOpen(false);
         if (drawerOpen) setDrawerOpen(false);
@@ -107,7 +112,7 @@ function App() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [snap, commandPaletteOpen, drawerOpen, refreshTabs]);
+  }, [snap, commandPaletteOpen, drawerOpen, aiSidebarOpen, refreshTabs]);
 
   const toggleSplitView = async () => {
     if (!snap) return;
@@ -132,7 +137,7 @@ function App() {
 
       {/* TopBar */}
       {snap && (
-        <TopBar snap={snap} onRefresh={() => { refreshTabs(); fetchShieldStatus(); }} onToggleSplit={toggleSplitView} onOpenCommandPalette={() => setCommandPaletteOpen(true)} shieldStatus={shieldStatus} onShieldPopoverToggle={(open) => { if (open) invoke("set_overlay_hidden", { hidden: true }).catch(console.error); else invoke("set_overlay_hidden", { hidden: false }).catch(console.error); }} />
+        <TopBar snap={snap} onRefresh={() => { refreshTabs(); fetchShieldStatus(); }} onToggleSplit={toggleSplitView} onOpenCommandPalette={() => setCommandPaletteOpen(true)} onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)} shieldStatus={shieldStatus} onShieldPopoverToggle={(open) => { if (open) invoke("set_overlay_hidden", { hidden: true }).catch(console.error); else invoke("set_overlay_hidden", { hidden: false }).catch(console.error); }} />
       )}
 
       {/* Bookmarks Bar */}
@@ -154,11 +159,16 @@ function App() {
             onTabChange={(tab) => setDrawerTab(tab)}
           />
         )}
+
+        {/* AI Assistant Sidebar */}
+        {aiSidebarOpen && (
+          <AiSidebar snap={snap} onClose={() => setAiSidebarOpen(false)} />
+        )}
       </div>
 
       {/* Command Palette */}
       {commandPaletteOpen && snap && (
-        <CommandPalette snap={snap} onRefresh={refreshTabs} onClose={() => setCommandPaletteOpen(false)} />
+        <CommandPalette snap={snap} onRefresh={refreshTabs} onClose={() => setCommandPaletteOpen(false)} onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)} />
       )}
     </div>
   );
