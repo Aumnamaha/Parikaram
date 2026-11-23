@@ -2,12 +2,17 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, Pin, X, SplitSquareHorizontal } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import type { BrowserSnapshot } from "../types/browser";
+import { ProfileSwitcher } from "./ProfileSwitcher";
+
+import type { ProfileRecord } from "../types/store";
 
 interface SidebarProps {
   snap: BrowserSnapshot | null;
   onRefresh: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  profiles?: ProfileRecord[];
+  activeProfileId?: string;
 }
 
 function getFavicon(url: string): string {
@@ -19,7 +24,7 @@ function getFavicon(url: string): string {
   }
 }
 
-export function Sidebar({ snap, onRefresh, collapsed, onToggleCollapse }: SidebarProps) {
+export function Sidebar({ snap, onRefresh, collapsed, onToggleCollapse, profiles = [], activeProfileId = "default" }: SidebarProps) {
   const [showSpaceCreator, setShowSpaceCreator] = useState(false);
   const [newSpaceName, setNewSpaceName] = useState("");
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -130,6 +135,19 @@ export function Sidebar({ snap, onRefresh, collapsed, onToggleCollapse }: Sideba
             </button>
           </div>
         </div>
+      )}
+
+      {!collapsed && (
+        <ProfileSwitcher
+          profiles={profiles}
+          activeProfileId={activeProfileId}
+          onSwitch={(pid) => invoke("switch_profile", { profileId: pid }).then(onRefresh).catch(console.error)}
+          onCreateNew={() => {
+            const name = `Profile ${profiles.length + 1}`;
+            invoke("create_profile", { name, accentColor: "#6366f1" }).then(() => onRefresh()).catch(console.error);
+          }}
+          onPopoverOpenChange={(open) => invoke("set_overlay_hidden", { hidden: open }).catch(console.error)}
+        />
       )}
 
       {collapsed && (

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Search, Globe, Folder, Monitor, SplitSquareHorizontal, X } from "lucide-react";
 import type { BrowserSnapshot } from "../types/browser";
+import type { HistoryEntry, BookmarkEntry } from "../types/store";
 
 interface CommandPaletteProps {
   snap: BrowserSnapshot | null;
@@ -23,6 +24,8 @@ interface ActionItem {
 export function CommandPalette({ snap, onRefresh, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [historyResults, setHistoryResults] = useState<HistoryEntry[]>([]);
+  const [bookmarkResults, setBookmarkResults] = useState<BookmarkEntry[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -33,6 +36,15 @@ export function CommandPalette({ snap, onRefresh, onClose }: CommandPaletteProps
       invoke("set_overlay_hidden", { hidden: false }).catch(console.error);
     };
   }, []);
+
+  // Fetch history and bookmarks when query changes
+  useEffect(() => {
+    if (!query.trim() || !snap) return;
+    Promise.all([
+      invoke("search_history", { query: query.trim(), limit: 5 }).then((r) => setHistoryResults(r as HistoryEntry[])).catch(() => {}),
+      invoke("list_bookmarks").then((r) => setBookmarkResults((r as BookmarkEntry[]).filter((b) => b.title.toLowerCase().includes(query.toLowerCase()) || b.url.toLowerCase().includes(query.toLowerCase())))).catch(() => {}),
+    ]);
+  }, [query, snap]);
 
   const actions = useState<ActionItem[]>(() => {
     if (!snap) return [];
@@ -130,7 +142,39 @@ export function CommandPalette({ snap, onRefresh, onClose }: CommandPaletteProps
 
         {/* Results list */}
         <div className="max-h-72 overflow-y-auto py-1">
-          {filtered.length === 0 && (
+          {/* History search results */}
+          {historyResults.length > 0 && query.trim() && (
+            <div className="px-3 py-2 border-t border-[var(--border-subtle)]">
+              <div className="text-[9px] uppercase tracking-widest text-[var(--text-secondary)] mb-1">History</div>
+              {historyResults.slice(0, 5).map((h) => (
+                <button key={h.id} onClick={() => onClose()} className="w-full flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-white/5 transition-colors text-left">
+                  <Search size={12} className="opacity-40 flex-shrink-0" />
+                  <div className="min-w-0 flex-1 truncate">
+                    <div className="truncate">{h.title}</div>
+                    <div className="text-[9px] opacity-50 truncate">{h.url}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Bookmark results */}
+          {bookmarkResults.length > 0 && query.trim() && (
+            <div className="px-3 py-2 border-t border-[var(--border-subtle)]">
+              <div className="text-[9px] uppercase tracking-widest text-[var(--text-secondary)] mb-1">Bookmarks</div>
+              {bookmarkResults.slice(0, 5).map((b) => (
+                <button key={b.id} onClick={() => onClose()} className="w-full flex items-center gap-2 px-2 py-1 rounded text-xs hover:bg-white/5 transition-colors text-left">
+                  <Globe size={12} className="opacity-40 flex-shrink-0" />
+                  <div className="min-w-0 flex-1 truncate">
+                    <div className="truncate">{b.title}</div>
+                    <div className="text-[9px] opacity-50 truncate">{b.url}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {filtered.length === 0 && !query.trim() && (
             <div className="px-4 py-6 text-center text-sm text-[var(--text-secondary)]">No results found</div>
           )}
           {filtered.map((item, i) => (

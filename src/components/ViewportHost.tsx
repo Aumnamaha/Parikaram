@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { BrowserSnapshot } from "../types/browser";
 
+
 interface ViewportHostProps {
   snap: BrowserSnapshot | null;
   onRefresh: () => void;

@@ -16,7 +16,7 @@ Built on **`Tauri v2 + Rust`** (WKWebView / WebView2, mobile-ready iOS/Android),
 
 ### Phase 3: Local-First SQLite + FTS5 Store
 - [x] 3.1 Bundled SQLite + FTS5 schema (spaces, tabs, history, bookmarks, notes, tasks, profiles) & Rust IPC
-- [ ] 3.2 React History search, Bookmarks bar, Notes & Tasks side drawer, and Profile switcher
+- [x] 3.2 React History search, Bookmarks bar, Notes & Tasks side drawer, and Profile switcher
 
 ### Phase 4: Native Rust Network & Ad/Tracker Blocker
 - [ ] 4.1 Brave adblock-rust filter engine + request interception + per-domain shield toggle & blocked counter
