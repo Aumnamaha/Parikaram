@@ -84,79 +84,90 @@ export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, o
   const isReady = hasActiveTab && activeTab !== null;
 
   return (
-    <div className="h-12 flex shrink-0 items-center gap-2 bg-[var(--bg-secondary)] border-b border-[var(--border-subtle)] px-3">
-      {/* Navigation controls */}
+    <div className="h-11 flex shrink-0 items-center gap-1.5 bg-[#0b0d13]/95 border-b border-white/[0.06] px-2 backdrop-blur-sm">
+      {/* Navigation controls — compact pill buttons */}
       <div className="flex items-center gap-0.5" style={{ WebkitAppRegion: "no-drag" } as any}>
-        <button onClick={() => hasActiveTab && invoke("go_back_tab", { tabId: snap!.active_tab_id! }).then(onRefresh).catch(console.error)} disabled={!isReady} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 transition-colors disabled:opacity-30">
-          <ArrowLeft size={16} />
+        <button onClick={() => hasActiveTab && invoke("go_back_tab", { tabId: snap!.active_tab_id! }).then(onRefresh).catch(console.error)} disabled={!isReady} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/[0.06] transition-colors disabled:opacity-25">
+          <ArrowLeft size={14} />
         </button>
-        <button onClick={() => hasActiveTab && invoke("go_forward_tab", { tabId: snap!.active_tab_id! }).then(onRefresh).catch(console.error)} disabled={!isReady} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 transition-colors disabled:opacity-30">
-          <ArrowRight size={16} />
+        <button onClick={() => hasActiveTab && invoke("go_forward_tab", { tabId: snap!.active_tab_id! }).then(onRefresh).catch(console.error)} disabled={!isReady} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/[0.06] transition-colors disabled:opacity-25">
+          <ArrowRight size={14} />
         </button>
-        <button onClick={() => hasActiveTab && invoke("reload_tab", { tabId: snap!.active_tab_id! }).then(onRefresh).catch(console.error)} className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/5 transition-colors">
-          <RotateCw size={16} />
+        <button onClick={() => hasActiveTab && invoke("reload_tab", { tabId: snap!.active_tab_id! }).then(onRefresh).catch(console.error)} className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/[0.06] transition-colors">
+          <RotateCw size={14} />
         </button>
       </div>
 
-      {/* Omnibox */}
+      {/* Omnibox — centered pill with proper icon padding (pl-9 prevents overlap) */}
       <form onSubmit={handleSubmit} className="flex-1" style={{ WebkitAppRegion: "no-drag" } as any}>
-        <div className="relative flex items-center">
-          <Search size={14} className="pointer-events-none absolute left-3 text-[var(--text-secondary)]" />
-          <input ref={omniboxRef} type="text" value={omniboxValue} onChange={(e) => setOmniboxValue(e.target.value)} onBlur={() => handleNavigate(omniboxValue.trim())} onKeyDown={(e) => { if (e.key === "Enter") handleNavigate((e.target as HTMLInputElement).value); }} className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-primary)] py-1.5 pl-9 pr-4 text-sm outline-none transition-all focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent-glow)]" placeholder={isReady ? "Search or enter URL" : "Parikaram — Loading..."} />
+        <div className="relative flex items-center rounded-lg bg-white/[0.04] border border-white/[0.08] focus-within:border-indigo-500/60 transition-all">
+          <Search size={14} className="pointer-events-none absolute left-3 text-zinc-500" />
+          <input ref={omniboxRef} type="text" value={omniboxValue} onChange={(e) => setOmniboxValue(e.target.value)} onBlur={() => handleNavigate(omniboxValue.trim())} onKeyDown={(e) => { if (e.key === "Enter") handleNavigate((e.target as HTMLInputElement).value); }} className="w-full bg-transparent py-1.5 pl-9 pr-24 text-[13px] outline-none placeholder:text-zinc-600" placeholder={isReady ? "Search or enter URL" : "Parikaram"} />
+          {/* Domain security pill */}
+          {activeTab && isReady && (
+            <span className="absolute right-3 flex items-center gap-1 text-[10px] text-zinc-500">
+              {activeUrl.startsWith("https") ? (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <span className="hidden sm:inline">HTTPS</span>
+                </>
+              ) : (
+                <>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                </>
+              )}
+            </span>
+          )}
         </div>
       </form>
 
-      {/* Shields badge */}
+      {/* Shields badge — green/amber pill */}
       <div className="relative" style={{ WebkitAppRegion: "no-drag" } as any}>
         <button
           onClick={() => { setShieldOpen((p) => !p); onShieldPopoverToggle(!shieldOpen); }}
           title={showShield ? `Shields Up (${totalBlocked} blocked)` : "Shields Paused"}
-          className={`flex w-8 items-center justify-center rounded hover:bg-white/5 transition-colors h-8 ${showShield ? "text-green-400" : "text-red-400"}`}
+          className={`flex h-7 items-center gap-1 rounded-md px-2 text-[10px] font-medium transition-colors ${showShield ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"} hover:bg-white/[0.06]`}
         >
-          {showShield ? <ShieldCheck size={16} /> : <ShieldOff size={16} />}
+          {showShield ? <ShieldCheck size={13} /> : <ShieldOff size={13} />}
+          {totalBlocked > 0 && (
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">{totalBlocked > 99 ? "99+" : totalBlocked}</span>
+          )}
         </button>
-        {totalBlocked > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
-            {totalBlocked > 99 ? "99+" : totalBlocked}
-          </span>
-        )}
 
         {/* Shield popover */}
         {shieldOpen && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] shadow-xl">
+          <div className="absolute right-0 top-full z-50 mt-1.5 w-72 overflow-hidden rounded-lg border border-white/[0.08] bg-[#0e1118]/98 backdrop-blur-xl shadow-2xl">
             <div className="max-h-80 space-y-3 overflow-y-auto p-3">
               {/* Global toggle */}
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-[var(--text-primary)]">Parikaram Shields</span>
-                <button onClick={handleGlobalToggle} className={`rounded px-2 py-0.5 text-xs ${shieldEnabled ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                <span className="text-xs font-medium text-zinc-200">Parikaram Shields</span>
+                <button onClick={handleGlobalToggle} className={`rounded px-2 py-0.5 text-[10px] ${shieldEnabled ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
                   {shieldEnabled ? "ON" : "OFF"}
                 </button>
               </div>
 
               {/* Per-site toggle */}
               <div className="flex items-center justify-between">
-                <span className="truncate max-w-40 text-xs text-[var(--text-secondary)]">{activeDomain || "(no domain)"}</span>
-                <button onClick={handleDomainToggle} className={`rounded px-2 py-0.5 text-xs ${domainShieldEnabled ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-                  {domainShieldEnabled ? "Shields ON" : "Shields PAUSED"}
+                <span className="truncate max-w-40 text-[11px] text-zinc-500">{activeDomain || "(no domain)"}</span>
+                <button onClick={handleDomainToggle} className={`rounded px-2 py-0.5 text-[10px] ${domainShieldEnabled ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>
+                  {domainShieldEnabled ? "Shields ON" : "PAUSED"}
                 </button>
               </div>
 
               {/* Stats */}
-              <div className="text-xs text-[var(--text-secondary)]">
-                <span>Total blocked: {totalBlocked}</span>
-                {" | "}
-                <span>Custom rules: {shieldStatus?.custom_rules_count ?? 0}</span>
+              <div className="text-[11px] text-zinc-500">
+                Blocked: {totalBlocked} · Rules: {shieldStatus?.custom_rules_count ?? 0}
               </div>
 
               {/* Recent blocked */}
               {(shieldStatus?.recent_blocked?.length ?? 0) > 0 && (
                 <div className="space-y-1">
-                  <div className="flex items-center justify-between text-xs font-medium text-[var(--text-secondary)]">
+                  <div className="flex items-center justify-between text-[10px] font-medium text-zinc-500">
                     <span>Recently Blocked</span>
-                    <button onClick={handleResetStats} className="text-[10px] text-red-400 hover:text-red-300">Reset</button>
+                    <button onClick={handleResetStats} className="text-red-400 hover:text-red-300">Reset</button>
                   </div>
                   {(shieldStatus?.recent_blocked ?? []).slice(-5).reverse().map((evt: BlockedEvent, i: number) => (
-                    <div key={i} className="truncate rounded bg-white/5 px-2 py-1 text-[10px] text-[var(--text-secondary)]" title={evt.url}>
+                    <div key={i} className="truncate rounded bg-white/[0.04] px-2 py-1 text-[10px] text-zinc-600" title={evt.url}>
                       {evt.domain}
                     </div>
                   ))}
@@ -164,7 +175,7 @@ export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, o
               )}
 
               {/* Add custom rule */}
-              <button onClick={handleAddCustomRule} className="w-full rounded px-2 py-1.5 text-xs text-[var(--text-secondary)] transition-colors bg-white/5 hover:bg-white/10">
+              <button onClick={handleAddCustomRule} className="w-full rounded px-2 py-1.5 text-[10px] text-zinc-500 transition-colors bg-white/[0.04] hover:bg-white/[0.08]">
                 + Block {activeDomain || "domain"}
               </button>
             </div>
@@ -173,30 +184,30 @@ export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, o
       </div>
 
       {/* Split view toggle */}
-      <button onClick={onToggleSplit} className={`flex h-8 w-8 items-center justify-center rounded hover:bg-white/5 transition-colors ${snap?.split_tab_id ? "text-[var(--accent)]" : ""}`} title="Toggle split view (Ctrl+\)" style={{ WebkitAppRegion: "no-drag" } as any}>
-        <SplitSquareHorizontal size={16} />
+      <button onClick={onToggleSplit} className={`flex h-7 w-7 items-center justify-center rounded-md hover:bg-white/[0.06] transition-colors ${snap?.split_tab_id ? "text-indigo-400" : ""}`} title="Toggle split view (Ctrl+\)" style={{ WebkitAppRegion: "no-drag" } as any}>
+        <SplitSquareHorizontal size={14} />
       </button>
 
       {/* AI Assistant toggle */}
       {onToggleAiSidebar && (
-        <button onClick={onToggleAiSidebar} className="flex h-8 w-8 items-center justify-center rounded text-violet-400 hover:bg-white/5 transition-colors" title="AI Assistant (Ctrl+E)" style={{ WebkitAppRegion: "no-drag" } as any}>
-          <Bot size={16} />
+        <button onClick={onToggleAiSidebar} className="flex h-7 w-7 items-center justify-center rounded-md text-violet-400 hover:bg-white/[0.06] transition-colors" title="AI Assistant (Ctrl+E)" style={{ WebkitAppRegion: "no-drag" } as any}>
+          <Bot size={14} />
         </button>
       )}
 
       {/* Command palette trigger */}
-      <button onClick={onOpenCommandPalette} className="flex h-8 w-8 items-center justify-center rounded text-[var(--text-secondary)] hover:bg-white/5 transition-colors" title="Command Palette (Ctrl+Shift+Space)" style={{ WebkitAppRegion: "no-drag" } as any}>
-        <Command size={16} />
+      <button onClick={onOpenCommandPalette} className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 hover:bg-white/[0.06] transition-colors" title="Command Palette (Ctrl+Shift+Space)" style={{ WebkitAppRegion: "no-drag" } as any}>
+        <Command size={14} />
       </button>
 
-      {/* Work Canvas mode toggle */}
+      {/* Work Canvas mode toggle — segmented pill */}
       {onToggleWorkMode && (
-        <div className="flex overflow-hidden rounded-lg border" style={{ WebkitAppRegion: "no-drag" } as any}>
-          <button onClick={() => workMode && onToggleWorkMode()} className={`px-2 py-1 text-[10px] transition-colors ${!workMode ? "bg-[var(--accent)]/20 font-medium text-[var(--accent)]" : "text-[var(--text-secondary)] hover:bg-white/5"}`} title="Browser Mode">
+        <div className="flex overflow-hidden rounded-md border border-white/[0.06]" style={{ WebkitAppRegion: "no-drag" } as any}>
+          <button onClick={() => workMode && onToggleWorkMode()} className={`px-2 py-1 text-[9px] transition-colors ${!workMode ? "bg-indigo-500/15 text-indigo-400 font-medium" : "text-zinc-600 hover:bg-white/[0.04]"}`} title="Browser Mode">
             <Layers size={12} />
           </button>
-          <div className="h-4 w-px bg-[var(--border-subtle)]" />
-          <button onClick={() => !workMode && onToggleWorkMode()} className={`px-2 py-1 text-[10px] transition-colors ${workMode ? "bg-violet-500/20 font-medium text-violet-400" : "text-[var(--text-secondary)] hover:bg-white/5"}`} title="Spatial Work Canvas (Ctrl+Shift+W)">
+          <div className="h-3.5 w-px bg-white/[0.06]" />
+          <button onClick={() => !workMode && onToggleWorkMode()} className={`px-2 py-1 text-[9px] transition-colors ${workMode ? "bg-violet-500/15 font-medium text-violet-400" : "text-zinc-600 hover:bg-white/[0.04]"}`} title="Spatial Work Canvas (Ctrl+Shift+W)">
             <Grid3X3 size={12} />
           </button>
         </div>
@@ -204,9 +215,9 @@ export function TopBar({ snap, onRefresh, onToggleSplit, onOpenCommandPalette, o
 
       {/* Mode indicator */}
       {snap?.split_tab_id && isReady && (
-        <span className="shrink-0 rounded bg-white/5 px-2 py-1 text-[10px] text-[var(--text-secondary)]">Split: {activeDomain}</span>
+        <span className="shrink-0 rounded bg-white/[0.04] px-2 py-0.5 text-[9px] text-zinc-600">Split</span>
       )}
-      {workMode && <span className="shrink-0 rounded bg-violet-500/10 px-2 py-1 text-[10px] font-medium text-violet-400">Work Canvas</span>}
+      {workMode && <span className="shrink-0 rounded bg-violet-500/10 px-2 py-0.5 text-[9px] font-medium text-violet-400">Canvas</span>}
     </div>
   );
 }

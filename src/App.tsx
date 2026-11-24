@@ -11,8 +11,26 @@ import { WorkspaceDrawer } from "./components/WorkspaceDrawer";
 import { AiSidebar } from "./components/AiSidebar";
 import { WorkCanvas } from "./components/WorkCanvas";
 
+/* ── DEFAULT_SNAPSHOT: guarantees the UI renders immediately on frame 1, never hanging on "Loading..." or "Initializing workspace..." ── */
+const WELCOME_TAB_ID = "tab-welcome";
+const PERSONAL_SPACE_ID = "space-personal";
+
+function makeDefaultSnapshot(): BrowserSnapshot {
+  return {
+    spaces: [{ id: PERSONAL_SPACE_ID, name: "Personal", icon: "folder", color: "#6366f1" }],
+    active_space_id: PERSONAL_SPACE_ID,
+    tabs: [
+      { id: WELCOME_TAB_ID, space_id: PERSONAL_SPACE_ID, title: "Welcome to Parikaram", url: "https://example.com", pinned: false, is_active: true, is_loading: false },
+    ],
+    active_tab_id: WELCOME_TAB_ID,
+    split_tab_id: null,
+    viewport: { x: 0, y: 0, width: 1360, height: 860 },
+    overlay_hidden: false,
+  };
+}
+
 function App() {
-  const [snap, setSnap] = useState<BrowserSnapshot | null>(null);
+  const [snap, setSnap] = useState<BrowserSnapshot>(makeDefaultSnapshot);
   const [_appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -34,8 +52,8 @@ function App() {
 
   const refreshTabs = useCallback(async () => {
     try {
-      const data = await invoke("list_tabs");
-      setSnap(data as BrowserSnapshot);
+      const data = await invoke("list_tabs") as BrowserSnapshot;
+      if (data && data.tabs.length > 0) setSnap(data);
     } catch (e) { console.error("Failed to list tabs:", e); }
   }, []);
 
@@ -59,14 +77,15 @@ function App() {
   }, []);
 
   const fetchShieldStatus = useCallback(async () => {
-    if (!snap || !snap.active_tab_id) return;
+    if (!snap.active_tab_id) return;
     try {
       const data = await invoke("get_shield_status", { activeUrl: snap.tabs.find(t => t.id === snap.active_tab_id)?.url, activeTabId: snap.active_tab_id });
       setShieldStatus(data as ShieldStatus);
     } catch (e) { console.error("Failed to fetch shield status:", e); }
   }, [snap]);
 
-  // Initialize all data in parallel; errors don't block UI from rendering
+  // Initialize all data in parallel; errors don't block UI from rendering.
+  // The DEFAULT_SNAPSHOT ensures the UI is immediately interactive on frame 1.
   useEffect(() => {
     Promise.allSettled([
       refreshTabs(),
@@ -101,7 +120,7 @@ function App() {
         invoke("create_tab", { url: null, pinned: false }).then(refreshTabs).catch(console.error);
       } else if (isCtrlOrCmd && e.key === "w") {
         e.preventDefault();
-        snap?.active_tab_id && invoke("close_tab", { tabId: snap.active_tab_id }).then(refreshTabs).catch(console.error);
+        snap.active_tab_id && invoke("close_tab", { tabId: snap.active_tab_id }).then(refreshTabs).catch(console.error);
       } else if (isCtrlOrCmd && e.key === "l") {
         e.preventDefault();
         const input = document.querySelector<HTMLInputElement>('input[placeholder*="Search"]');
@@ -148,11 +167,11 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-primary)] select-none text-[var(--text-primary)]">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#090b10] select-none text-zinc-200">
       {/* Error banner */}
       {error && (
-        <div className="z-50 border-b border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs text-red-400" style={{ WebkitAppRegion: "no-drag" } as any}>
-          <span>⚠</span><span>{error}</span>
+        <div className="z-50 border-b border-red-500/20 bg-red-500/[0.06] px-3 py-1.5 text-[11px] text-red-400" style={{ WebkitAppRegion: "no-drag" } as any}>
+          <span className="mr-1">⚠</span>{error}
         </div>
       )}
 
@@ -175,14 +194,16 @@ function App() {
       )}
 
       {workMode ? (
-        /* ── Work Canvas Mode ──────────────────────────────── */
-        <div className="flex-1 overflow-hidden relative">
-          <WorkCanvas snap={snap} activeSpaceId={snap?.active_space_id ?? undefined} />
+        /* ── Work Canvas Mode — Zephium inset frame ──────────── */
+        <div className="flex-1 bg-[#090b10] p-1.5 overflow-hidden">
+          <div className="h-full rounded-xl border border-white/[0.08] bg-[#0e1118] shadow-2xl overflow-hidden relative">
+            <WorkCanvas snap={snap} activeSpaceId={snap.active_space_id} />
+          </div>
         </div>
       ) : (
-        /* ── Browser Mode ──────────────────────────────────── */
+        /* ── Browser Mode — Zephium inset frame ─────────────── */
         <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
-          {/* Sidebar — left panel, shrink-0 */}
+          {/* Sidebar — left panel, shrink-0, obsidian */}
           <Sidebar
             snap={snap}
             onRefresh={refreshTabs}
@@ -192,23 +213,25 @@ function App() {
             activeProfileId={_activeProfileId}
           />
 
-          {/* Main viewport area */}
-          <ViewportHost snap={snap} onRefresh={refreshTabs} />
+          {/* Main viewport area — Zephium inset framed card */}
+          <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+            <ViewportHost snap={snap} onRefresh={refreshTabs} />
 
-          {/* Workspace Drawer — right docked panel */}
-          {drawerOpen && (
-            <WorkspaceDrawer
-              open={drawerOpen}
-              activeTab={drawerTab}
-              onClose={() => setDrawerOpen(false)}
-              onTabChange={(tab) => setDrawerTab(tab)}
-            />
-          )}
+            {/* Workspace Drawer — right docked panel */}
+            {drawerOpen && (
+              <WorkspaceDrawer
+                open={drawerOpen}
+                activeTab={drawerTab}
+                onClose={() => setDrawerOpen(false)}
+                onTabChange={(tab) => setDrawerTab(tab)}
+              />
+            )}
 
-          {/* AI Assistant Sidebar — right docked panel */}
-          {aiSidebarOpen && (
-            <AiSidebar snap={snap} onClose={() => setAiSidebarOpen(false)} />
-          )}
+            {/* AI Assistant Sidebar — right docked panel */}
+            {aiSidebarOpen && (
+              <AiSidebar snap={snap} onClose={() => setAiSidebarOpen(false)} />
+            )}
+          </div>
         </div>
       )}
 

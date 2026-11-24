@@ -23,7 +23,6 @@ export function ViewportHost({ snap, onRefresh }: ViewportHostProps) {
   const debounceTimer = useRef<number | null>(null);
 
   useEffect(() => {
-    // Check if running inside Tauri
     setIsTauri(!!window.__TAURI_INTERNALS__);
   }, []);
 
@@ -43,7 +42,7 @@ export function ViewportHost({ snap, onRefresh }: ViewportHostProps) {
     });
 
     observer.observe(containerRef.current);
-    sendBounds(); // Initial bounds — even when snap is null, browser.rs sync handles it gracefully
+    sendBounds(); // Initial bounds — browser.rs sync handles null snap gracefully
 
     const onWindowResize = () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -56,82 +55,55 @@ export function ViewportHost({ snap, onRefresh }: ViewportHostProps) {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       window.removeEventListener("resize", onWindowResize);
     };
-  }, []); // Run once on mount; bounds auto-update via ResizeObserver
+  }, []); // Run once; ResizeObserver auto-updates
 
 
   const activeTab = snap?.tabs.find((t) => t.id === snap.active_tab_id) ?? null;
   const splitTab = snap?.split_tab_id ? snap.tabs.find((t) => t.id === snap.split_tab_id) : null;
 
-  // When snap is loading, show a welcome screen so the pane isn't dead space
-  if (!snap) {
+  // Defensive: show welcome when snap is unexpectedly null or not in Tauri
+  if (!snap || !isTauri) {
     return (
-      <div ref={containerRef} className="flex-1 bg-[var(--bg-primary)] flex items-center justify-center relative overflow-hidden">
-        <div className="text-center space-y-4 p-8 max-w-md">
-          {/* Logo */}
-          <div className="mx-auto h-16 w-16 rounded-xl border border-[var(--accent)]/20 bg-[var(--accent)]/10 flex items-center justify-center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--accent)]"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </div>
-          <h2 className="text-lg font-medium text-[var(--text-primary)]">Parikaram Browser</h2>
-          <p className="text-sm text-[var(--text-secondary)] max-w-xs mx-auto">Initializing workspace…</p>
-
-          {/* Quick-launch buttons */}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            {QUICK_LINKS.map((link) => (
-              <button key={link.url} onClick={() => invoke("create_tab", { url: link.url, pinned: false }).then(onRefresh).catch(console.error)}
-                className="rounded-lg border border-[var(--border-subtle)] bg-white/[0.03] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-white/5 transition-colors">
-                {link.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Keyboard shortcuts hint */}
-          <p className="mt-4 text-[10px] text-[var(--text-secondary)]">Press Ctrl+T for new tab · Ctrl+Shift+W for Work Canvas</p>
-        </div>
-      </div>
-    );
-  }
-
-  // If not inside Tauri, show a placeholder
-  if (!isTauri) {
-    return (
-      <div ref={containerRef} className="flex-1 bg-[var(--bg-primary)] flex items-center justify-center relative overflow-hidden">
+      <div ref={containerRef} className="flex-1 bg-[#0e1118] flex items-center justify-center relative overflow-hidden">
         {/* Split pane header */}
-        {(snap.split_tab_id || snap.overlay_hidden) && (
-          <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-secondary)]/90 px-3 py-1.5 backdrop-blur-sm">
-            {activeTab && <span className="truncate text-xs text-[var(--text-primary)]">{getHost(activeTab.url)}</span>}
-            {splitTab && <span className="truncate text-xs text-[var(--accent)]">+ {getHost(splitTab.url)}</span>}
+        {(snap?.split_tab_id || snap?.overlay_hidden) && (
+          <div className="absolute top-0 left-0 right-0 z-10 flex items-center gap-2 border-b border-white/[0.06] bg-[#0b0d13]/90 px-3 py-1.5 backdrop-blur-sm">
+            {activeTab && <span className="truncate text-xs text-zinc-400">{getHost(activeTab.url)}</span>}
+            {splitTab && <span className="truncate text-xs text-indigo-400">+ {getHost(splitTab.url)}</span>}
           </div>
         )}
 
-        {/* Placeholder content */}
-        <div className="space-y-3 p-8 text-center">
-          <div className="mx-auto h-16 w-16 rounded-xl border border-[var(--accent)]/20 bg-[var(--accent)]/10 flex items-center justify-center">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--accent)]"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        {/* Welcome / placeholder */}
+        <div className="space-y-3 p-8 text-center max-w-md">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-500"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
           </div>
-          <h2 className="text-lg font-medium text-[var(--text-primary)]">Parikaram Browser</h2>
-          <p className="max-w-xs text-sm text-[var(--text-secondary)] mx-auto">Launch the app with `npm run tauri dev` to see the native WebView engine.</p>
+          <h2 className="text-base font-medium text-zinc-400">Parikaram Browser</h2>
+          {!isTauri && <p className="max-w-xs text-sm text-zinc-600 mx-auto">Launch with `npm run tauri dev` for native WebView engine.</p>}
 
           {/* Quick-launch buttons */}
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             {QUICK_LINKS.map((link) => (
               <button key={link.url} onClick={() => invoke("create_tab", { url: link.url, pinned: false }).then(onRefresh).catch(console.error)}
-                className="rounded-lg border border-[var(--border-subtle)] bg-white/[0.03] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-white/5 transition-colors">
+                className="rounded-md border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-[11px] font-medium text-zinc-400 hover:bg-white/[0.06] transition-colors">
                 {link.label}
               </button>
             ))}
           </div>
+
+          <p className="text-[9px] text-zinc-700 pt-2">Ctrl+T new tab · Ctrl+Shift+W Work Canvas</p>
         </div>
 
         {/* Active tab URL badge */}
         {activeTab && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)]/80 px-3 py-1.5 text-xs text-[var(--text-secondary)] backdrop-blur-sm max-w-md">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 truncate rounded-md border border-white/[0.06] bg-[#0b0d13]/80 px-3 py-1 text-xs text-zinc-600 backdrop-blur-sm max-w-md">
             {getHost(activeTab.url)}
           </div>
         )}
 
         {/* Split view close button */}
-        {snap.split_tab_id && (
-          <button onClick={() => invoke("set_split_tabs", { secondaryTabId: null }).then(onRefresh).catch(console.error)} className="absolute right-3 top-2 flex h-6 w-6 items-center justify-center rounded text-[var(--text-secondary)] hover:bg-white/10" title="Close split view">
+        {snap?.split_tab_id && (
+          <button onClick={() => invoke("set_split_tabs", { secondaryTabId: null }).then(onRefresh).catch(console.error)} className="absolute right-3 top-2 flex h-6 w-6 items-center justify-center rounded text-zinc-600 hover:bg-white/[0.06]" title="Close split view">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         )}
@@ -139,15 +111,15 @@ export function ViewportHost({ snap, onRefresh }: ViewportHostProps) {
     );
   }
 
-  // Inside Tauri — the native webview child panes render here automatically.
+  // Inside Tauri — native WebView child panes render here automatically.
   return (
-    <div ref={containerRef} className="flex-1 bg-[var(--bg-primary)] relative overflow-hidden">
+    <div ref={containerRef} className="flex-1 bg-[#0e1118] relative overflow-hidden">
       {/* Split pane header */}
       {snap.split_tab_id && snap.viewport.width > 10 && snap.viewport.height > 10 && !snap.overlay_hidden && (
-        <div className="absolute top-0 left-0 right-0 z-[5] flex items-center gap-2 border-b border-[var(--border-subtle)] bg-[var(--bg-secondary)]/90 px-3 py-1.5 backdrop-blur-sm">
-          {activeTab && <span className="truncate text-xs font-medium text-[var(--accent)]">{getHost(activeTab.url)}</span>}
-          {splitTab && <span className="truncate text-xs text-[var(--text-secondary)]">+ {getHost(splitTab.url)}</span>}
-          <button onClick={() => invoke("set_split_tabs", { secondaryTabId: null }).then(onRefresh).catch(console.error)} className="ml-auto flex h-5 w-5 items-center justify-center rounded text-[var(--text-secondary)] hover:bg-white/10">
+        <div className="absolute top-0 left-0 right-0 z-[5] flex items-center gap-2 border-b border-white/[0.06] bg-[#0b0d13]/90 px-3 py-1.5 backdrop-blur-sm">
+          {activeTab && <span className="truncate text-xs font-medium text-indigo-400">{getHost(activeTab.url)}</span>}
+          {splitTab && <span className="truncate text-xs text-zinc-600">+ {getHost(splitTab.url)}</span>}
+          <button onClick={() => invoke("set_split_tabs", { secondaryTabId: null }).then(onRefresh).catch(console.error)} className="ml-auto flex h-5 w-5 items-center justify-center rounded text-zinc-600 hover:bg-white/[0.06]">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -155,7 +127,7 @@ export function ViewportHost({ snap, onRefresh }: ViewportHostProps) {
 
       {/* Active tab URL badge (bottom) */}
       {activeTab && snap.viewport.width > 10 && snap.viewport.height > 10 && !snap.overlay_hidden && (
-        <div className="absolute bottom-3 left-1/2 z-[5] -translate-x-1/2 truncate rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)]/80 px-3 py-1.5 text-xs text-[var(--text-secondary)] backdrop-blur-sm max-w-md">
+        <div className="absolute bottom-3 left-1/2 z-[5] -translate-x-1/2 truncate rounded-md border border-white/[0.06] bg-[#0b0d13]/80 px-3 py-1 text-xs text-zinc-600 backdrop-blur-sm max-w-md">
           {getHost(activeTab.url)}
         </div>
       )}
@@ -163,7 +135,7 @@ export function ViewportHost({ snap, onRefresh }: ViewportHostProps) {
       {/* Loading indicator */}
       {activeTab?.is_loading && (
         <div className="absolute top-0 left-0 right-0 z-[10] h-0.5 overflow-hidden bg-transparent">
-          <div className="h-full w-full origin-left bg-[var(--accent)] animate-pulse" style={{ animation: "loading 1s ease-in-out infinite" }} />
+          <div className="h-full w-full origin-left bg-indigo-500 animate-pulse" style={{ animation: "loading 1s ease-in-out infinite" }} />
         </div>
       )}
     </div>
