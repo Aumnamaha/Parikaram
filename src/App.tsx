@@ -66,12 +66,18 @@ function App() {
     } catch (e) { console.error("Failed to fetch shield status:", e); }
   }, [snap]);
 
+  // Initialize all data in parallel; errors don't block UI from rendering
   useEffect(() => {
-    Promise.all([
+    Promise.allSettled([
       refreshTabs(),
       invoke("get_app_info").then((info) => setAppInfo(info as AppInfo)).catch(console.error),
       refreshStore(),
-    ]).catch((e) => setError(String(e)));
+    ]).then((results) => {
+      const rejected = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      if (rejected.length > 0) {
+        setError(rejected.map((r) => String(r.reason)).join("; ") || "Some initial data failed to load");
+      }
+    });
     fetchShieldStatus();
   }, [refreshTabs, refreshStore, fetchShieldStatus]);
 
@@ -142,36 +148,54 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--bg-primary)] select-none text-[var(--text-primary)]">
       {/* Error banner */}
       {error && (
-        <div className="px-3 py-1.5 bg-red-500/10 border-b border-red-500/20 text-xs text-red-400 flex items-center gap-2" style={{ WebkitAppRegion: "no-drag" } as any}>
+        <div className="z-50 border-b border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs text-red-400" style={{ WebkitAppRegion: "no-drag" } as any}>
           <span>⚠</span><span>{error}</span>
         </div>
       )}
 
-      {/* TopBar */}
-      {snap && (
-        <TopBar snap={snap} onRefresh={() => { refreshTabs(); fetchShieldStatus(); }} onToggleSplit={toggleSplitView} onOpenCommandPalette={() => setCommandPaletteOpen(true)} onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)} shieldStatus={shieldStatus} onShieldPopoverToggle={(open) => { if (open) invoke("set_overlay_hidden", { hidden: true }).catch(console.error); else invoke("set_overlay_hidden", { hidden: false }).catch(console.error); }} workMode={workMode} onToggleWorkMode={() => setWorkMode((p) => !p)} />
-      )}
+      {/* TopBar — always rendered unconditionally */}
+      <TopBar
+        snap={snap}
+        onRefresh={() => { refreshTabs(); fetchShieldStatus(); }}
+        onToggleSplit={toggleSplitView}
+        onOpenCommandPalette={() => setCommandPaletteOpen(true)}
+        onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)}
+        shieldStatus={shieldStatus}
+        onShieldPopoverToggle={(open) => { if (open) invoke("set_overlay_hidden", { hidden: true }).catch(console.error); else invoke("set_overlay_hidden", { hidden: false }).catch(console.error); }}
+        workMode={workMode}
+        onToggleWorkMode={() => setWorkMode((p) => !p)}
+      />
 
-      {/* Bookmarks Bar (browser mode only) */}
-      {!workMode && snap && (
+      {/* Bookmarks Bar — always rendered in browser mode */}
+      {!workMode && (
         <BookmarksBar bookmarks={bookmarks} snap={snap} onRefresh={refreshStore} />
       )}
 
       {workMode ? (
         /* ── Work Canvas Mode ──────────────────────────────── */
         <div className="flex-1 overflow-hidden relative">
-          <WorkCanvas snap={snap} activeSpaceId={snap?.active_space_id} />
+          <WorkCanvas snap={snap} activeSpaceId={snap?.active_space_id ?? undefined} />
         </div>
       ) : (
         /* ── Browser Mode ──────────────────────────────────── */
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar snap={snap} onRefresh={refreshTabs} collapsed={sidebarCollapsed} onToggleCollapse={() => setSidebarCollapsed((p) => !p)} profiles={_profiles} activeProfileId={_activeProfileId} />
+        <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
+          {/* Sidebar — left panel, shrink-0 */}
+          <Sidebar
+            snap={snap}
+            onRefresh={refreshTabs}
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={() => setSidebarCollapsed((p) => !p)}
+            profiles={_profiles}
+            activeProfileId={_activeProfileId}
+          />
+
+          {/* Main viewport area */}
           <ViewportHost snap={snap} onRefresh={refreshTabs} />
 
-          {/* Workspace Drawer */}
+          {/* Workspace Drawer — right docked panel */}
           {drawerOpen && (
             <WorkspaceDrawer
               open={drawerOpen}
@@ -181,7 +205,7 @@ function App() {
             />
           )}
 
-          {/* AI Assistant Sidebar */}
+          {/* AI Assistant Sidebar — right docked panel */}
           {aiSidebarOpen && (
             <AiSidebar snap={snap} onClose={() => setAiSidebarOpen(false)} />
           )}
@@ -189,7 +213,7 @@ function App() {
       )}
 
       {/* Command Palette (browser mode only) */}
-      {!workMode && commandPaletteOpen && snap && (
+      {!workMode && commandPaletteOpen && (
         <CommandPalette snap={snap} onRefresh={refreshTabs} onClose={() => setCommandPaletteOpen(false)} onToggleAiSidebar={() => setAiSidebarOpen((p) => !p)} />
       )}
     </div>
